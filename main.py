@@ -36,17 +36,35 @@ def get_data_from_db(query, params=None):
 @app.route('/', methods=['GET', 'POST'])
 def main_menu():
 
-    # Основное меню с фильтрацией
     filters = {
         "start_date": request.form.get('start_date'),
         "end_date": request.form.get('end_date'),
+        "type": request.form.get('type'),
         "id": request.form.get('id'),
-        "report_id": request.form.get('report_id'),
     }
 
     # Загрузка истории отчетов
-    query = """ SELECT id, type, date FROM report ORDER BY date DESC """
-    history = get_data_from_db(query)
+    query = """ SELECT id, type, date FROM report """
+
+    conditions = []
+    params = {}
+
+    # Добавление фильтров
+    if filters["start_date"]:
+        conditions.append("date >= %(start_date)s")
+        params["start_date"] = filters["start_date"]
+    if filters["end_date"]:
+        conditions.append("date <= %(end_date)s")
+        params["end_date"] = filters["end_date"]
+    if filters["type"]:
+        conditions.append("type = %(type)s")
+        params["type"] = filters["type"]
+
+    # Добавление условий в запрос
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    query += " ORDER BY date DESC"
+    history = get_data_from_db(query, params)\
 
     return render_template('main_menu.html', filters=filters, history=history)
 
@@ -63,8 +81,8 @@ def report(report_name):
 
     # Страница отчёта
     filters = {
-        "start_date": request.form.get('start_date'),
-        "end_date": request.form.get('end_date'),
+        "start_date_report": request.form.get('start_date_report'),
+        "end_date_report": request.form.get('end_date_report'),
         "id": request.form.get('id'),
         "report_id": request.form.get('report_id'),
     }
@@ -78,12 +96,12 @@ def report(report_name):
 
     # Добавление фильтров
     conditions = []
-    if filters["start_date"]:
-        conditions.append("date >= %(start_date)s")
-        params["start_date"] = filters["start_date"]
-    if filters["end_date"]:
-         conditions.append("date <= %(end_date)s")
-         params["end_date"] = filters["end_date"]
+    if filters["start_date_report"]:
+        conditions.append("date >= %(start_date_report)s")
+        params["start_date_report"] = filters["start_date_report"]
+    if filters["end_date_report"]:
+         conditions.append("date <= %(end_date_report)s")
+         params["end_date_report"] = filters["end_date_report"]
     if filters["id"]:
         conditions.append("id = %(id)s")
         params["id"] = filters["id"]

@@ -45,13 +45,13 @@
     <form method="POST" action="/" style="text-align: left; color:white;">
         <h1 style="text-align: left; color:white;">Основное меню</h1>
         <!--Основное меню-->
-        <div >
+        <div>
             <label for="start_date">Начало периода:</label>
-            <input type="date" name="start_date" id="start_date" value="{{ filters['start_date'] }}">
+            <input type="date" id="start_date_report" name="start_date_report" value="{{ filters['start_date_report'] }}">
         </div>
         <div>
             <label for="end_date">Конец периода:</label>
-            <input type="date" name="end_date" id="end_date" value="{{ filters['end_date'] }}">
+            <input type="date" id="end_date_report" name="end_date_report" value="{{ filters['end_date_report'] }}">
         </div>
         <div>
             <label for="id">Продукт:</label>
@@ -62,8 +62,8 @@
             </select>
         </div>
         <div>
-            <label for="report_id">Смена:</label>
-            <input type="text" name="report_id" id="report_id" value="{{ filters['report_id'] }}">
+            <label for="types">Смена:</label>
+            <input type="text" name="types" id="types" value="{{ filters['type'] }}">
         </div>
     <h2 style="text-align: left; color:white;">Оперативные отчеты</h2>
         <div>
@@ -74,6 +74,19 @@
         </div>
 
      <h2 style="text-align: left; color:white;">История отчетов</h2>
+        <!-- Форма для фильтрации -->
+        <form method="POST">
+        <label for="start_date">Начало периода:</label>
+        <input type="date" id="start_date" name="start_date" value="{{ filters['start_date'] }}">
+
+        <label for="end_date">Конец периода:</label>
+        <input type="date" id="end_date" name="end_date" value="{{ filters['end_date'] }}">
+
+        <label for="type">Тип отчёта:</label>
+        <input type="text" id="type" name="type" value="{{ filters['type'] }}">
+
+        <button type="submit">Применить фильтры</button>
+
     <!--Держит ахуй всей командой-->
     <table style="text-align: left; color:white;" class="scrolldown">
         <thead>
@@ -90,15 +103,17 @@
                 <td>{{ record[0] }}</td>
                 <td>{{ record[1] }}</td>
                 <td>{{ record[2] }}</td>
-                <td><a href="{{ url_for('report', report_name=record[0])}}">Открыть</a>
+                <td>  {% if record[3] %}
+                        <a href="{{ record[3] }}" open>Открыть</a>
+                    {% else %}
+                        Нет файла
+                    {% endif %}</a>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-
     </form>
-
 
 </body>
 </html>
