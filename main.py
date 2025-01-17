@@ -1,0 +1,111 @@
+from flask import Flask, render_template, request, flash, url_for, redirect
+from werkzeug.exceptions import HTTPException
+import psycopg2
+
+app = Flask(__name__)
+app.secret_key = 'key'
+
+# Подключение к базе данных
+DB_CONFIG = {
+    'dbname': 'croposdb',
+    'user': 'cropos',
+    'password': 'N@fta1450Crps',
+    'host': '10.155.23.71',
+    'port': 5432
+}
+
+def get_data_from_db(query, params=None):
+
+    # Выполняет запрос к базе данных и возвращает результат
+    try:
+        connection = psycopg2.connect(**DB_CONFIG)
+        cursor = connection.cursor()
+        cursor.execute(query, params or {})
+        rows = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        ok_message = "Подключен к базе данных"
+        print(ok_message) # для дебагинка базы данных
+        return rows
+
+    except Exception as e:
+        error_message = f"Ошибка подключения к базе данных: {e}"
+        print(error_message) # для дебагинка базы данных
+        return None, error_message
+
+@app.route('/', methods=['GET', 'POST'])
+def main_menu():
+
+    # Основное меню с фильтрацией
+    filters = {
+        "start_date": request.form.get('start_date'),
+        "end_date": request.form.get('end_date'),
+        "id": request.form.get('id'),
+        "report_id": request.form.get('report_id'),
+    }
+
+    # Загрузка истории отчетов
+    query = """ SELECT id, type, date FROM report ORDER BY date DESC """
+    history = get_data_from_db(query)
+
+    return render_template('main_menu.html', filters=filters, history=history)
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+
+    # Страница с ошибкой
+    if isinstance(e, HTTPException):
+        return e
+    return render_template("err.html", e=e), 500
+
+@app.route('/report/<report_name>', methods=['GET', 'POST'])
+def report(report_name):
+
+    # Страница отчёта
+    filters = {
+        "start_date": request.form.get('start_date'),
+        "end_date": request.form.get('end_date'),
+        "id": request.form.get('id'),
+        "report_id": request.form.get('report_id'),
+    }
+
+    # SQL-запросы для отчётов
+    queries = {"all_data": "SELECT rd.id, rd.report_id, rd.temp, rd.pres, rd.volume, rd.volume20, r.date FROM report_data rd JOIN report r ON rd.report_id = r.id "}
+
+    # Получение базового SQL-запроса
+    base_query = queries.get(report_name, queries["all_data"])
+    params = {}
+
+    # Добавление фильтров
+    conditions = []
+    if filters["start_date"]:
+        conditions.append("date >= %(start_date)s")
+        params["start_date"] = filters["start_date"]
+    if filters["end_date"]:
+         conditions.append("date <= %(end_date)s")
+         params["end_date"] = filters["end_date"]
+    if filters["id"]:
+        conditions.append("id = %(id)s")
+        params["id"] = filters["id"]
+    if filters["report_id"]:
+        conditions.append("report_id = %(report_id)s")
+        params["report_id"] = filters["report_id"]
+
+    # Соединение базового запроса и условий
+    if conditions:
+        if "WHERE" in base_query.upper():
+             query = f"{base_query} AND {' AND '.join(conditions)}"
+        else:
+            query = f"{base_query} WHERE {' AND '.join(conditions)}"
+    else:
+        query = base_query
+
+    # Получение данных
+    data, error = get_data_from_db(query, params)
+    if error: # (можно убрать после выпуска)
+        flash(error, 'error')  # Передача сообщения об ошибке
+        return redirect(url_for('err'))  # Возвращаемся в основное меню
+    return render_template(f'report_{report_name}.html', data=data, filters=filters)
+
+if __name__ == '__main__':
+    app.run(host='10.155.23.169', debug=True, port=5000)

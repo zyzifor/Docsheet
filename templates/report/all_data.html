@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Товарно-Транспортная Накладная</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        h1, h2 {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+<form method="POST" action="/" style="text-align: left;">
+    <h1>Журнал транзакций по автотранспорту (выгрузка от {{ record[0] }}) — оператор {{ record[1] }}</h1>
+    Данные отфильтрованны по — интервал: c {{start_date}} по {{end_date}}; смена: {{report_id}}; пост: {{id}}
+<table>
+    <tr style="background-color: Tomato">
+        <td>Дата Время</td>
+        <td>Оператор</td>
+        <td>№ транзакции</td>
+        <td>№ смены</td>
+        <td>Пост</td>
+        <td>Топливо</td>
+        <td>Резервуар</td>
+        <td>Направление</td>
+        <td>Доза</td>
+        <td>Плотность, кг/м³</td>
+        <td>Температура, °С</td>
+        <td>Масса, кг</td>
+        <td>Объём, лит</td>
+        <td>Масса общ., кг</td>
+        <td>Объём общ., лит</td>
+    </tr>
+    {% for record in history %}
+    <tr>
+        <td>{{ record[0] }}</td>
+        <td>{{ record[1] }}</td>
+        <td>{{ record[2] }}</td>
+        <td>{{ record[3] }}</td>
+        <td>{{ record[4] }}</td>
+        <td>{{ record[5] }}</td>
+        <td>{{ record[6] }}</td>
+        <td>{{ record[7] }}</td>
+        <td>{{ record[8] }}</td>
+        <td>{{ record[9] }}</td>
+        <td>{{ record[10] }}</td>
+        <td>{{ record[11] }}</td>
+        <td>{{ record[12] }}</td>
+        <td>{{ record[13] }}</td>
+        <td>{{ record[14] }}</td>
+    </tr>>
+    {% endfor %}
+</table>
+</form>
+Отчет составил {{ record[1] }} /___________________________/
+</body>
+</html>

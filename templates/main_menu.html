@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" name="author" content="John Doe">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Основное меню</title>
+    <style>
+        form {
+            text-align: center;
+            margin: 20px;
+        }
+        form div {
+            margin-bottom: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        /* Фиксирует таблицу */
+        table.scrolldown tbody,
+        table.scrolldown thead {
+            display: block;
+        }
+
+        table.scrolldown tbody {
+
+            /* Размер таблицы */
+            height: 650px;
+
+            /* Включает вертикальный скрол */
+            overflow-y: auto;
+        }
+
+        tbody td,
+        thead th {
+            width: 200px;
+            border-right: 2px solid black;
+        }
+
+    </style>
+</head>
+
+<body style="background-color:black";>
+    <form method="POST" action="/" style="text-align: left; color:white;">
+        <h1 style="text-align: left; color:white;">Основное меню</h1>
+        <!--Основное меню-->
+        <div >
+            <label for="start_date">Начало периода:</label>
+            <input type="date" name="start_date" id="start_date" value="{{ filters['start_date'] }}">
+        </div>
+        <div>
+            <label for="end_date">Конец периода:</label>
+            <input type="date" name="end_date" id="end_date" value="{{ filters['end_date'] }}">
+        </div>
+        <div>
+            <label for="id">Продукт:</label>
+            <select id="id" name="id" value="{{ filters['id'] }}">
+                <option value="метанол">Метанол</option>
+                <option value="ДТ">ДТ</option>
+                <option value="СГК">СГК</option>
+            </select>
+        </div>
+        <div>
+            <label for="report_id">Смена:</label>
+            <input type="text" name="report_id" id="report_id" value="{{ filters['report_id'] }}">
+        </div>
+    <h2 style="text-align: left; color:white;">Оперативные отчеты</h2>
+        <div>
+
+            <button type="submit" formaction="/report/all_data">Все данные</button>
+            <button type="submit" formaction="/report/all_data">Все данные</button>
+            <button type="submit" formaction="/report/all_data">Все данные</button>
+        </div>
+
+     <h2 style="text-align: left; color:white;">История отчетов</h2>
+    <!--Держит ахуй всей командой-->
+    <table style="text-align: left; color:white;" class="scrolldown">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Тип</th>
+                <th>Дата</th>
+                <th>Файлы</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in history %}
+            <tr>
+                <td>{{ record[0] }}</td>
+                <td>{{ record[1] }}</td>
+                <td>{{ record[2] }}</td>
+                <td><a href="{{ url_for('report', report_name=record[0])}}">Открыть</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    </form>
+
+
+</body>
+</html>
