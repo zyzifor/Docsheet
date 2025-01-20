@@ -7,10 +7,10 @@ app.secret_key = 'key'
 
 # Подключение к базе данных
 DB_CONFIG = {
-    'dbname': 'croposdb',
-    'user': 'cropos',
-    'password': 'N@fta1450Crps',
-    'host': '10.155.23.71',
+    'dbname': 'dbname',
+    'user': 'user',
+    'password': 'pswd',
+    'host': '0.0.0.0',
     'port': 5432
 }
 
@@ -126,4 +126,4 @@ def report(report_name):
     return render_template(f'report_{report_name}.html', data=data, filters=filters)
 
 if __name__ == '__main__':
-    app.run(host='10.155.23.169', debug=True, port=5000)
+    app.run(host='0.0.0.0', debug=True, port=5000)

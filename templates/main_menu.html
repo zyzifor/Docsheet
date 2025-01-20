@@ -74,8 +74,8 @@
         </div>
 
      <h2 style="text-align: left; color:white;">История отчетов</h2>
+
         <!-- Форма для фильтрации -->
-        <form method="POST">
         <label for="start_date">Начало периода:</label>
         <input type="date" id="start_date" name="start_date" value="{{ filters['start_date'] }}">
 
@@ -104,7 +104,7 @@
                 <td>{{ record[1] }}</td>
                 <td>{{ record[2] }}</td>
                 <td>  {% if record[3] %}
-                        <a href="{{ record[3] }}" open>Открыть</a>
+                        <a href="{{ record[3] }}">Открыть</a>
                     {% else %}
                         Нет файла
                     {% endif %}</a>
