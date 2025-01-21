@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сменный отчет</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Сменный отчет</h1>
+
+    {% if report %}
+    <table>
+        <tr>
+            <th>ID</th>
+            <td>{{ report[0] }}</td>
+        </tr>
+        <tr>
+            <th>Тип</th>
+            <td>{{ report[1] }}</td>
+        </tr>
+        <tr>
+            <th>Дата</th>
+            <td>{{ report[2] }}</td>
+        </tr>
+        <tr>
+            <th>Path</th>
+            <td>{{ report[3] }}</td>
+        </tr>
+    </table>
+    {% else %}
+    <p class="error">Данные для отчёта отсутствуют.</p>
+    {% endif %}
+
+    <a href="{{ url_for('main_menu') }}">Вернуться обратно</a>
+</body>
+</html>
