@@ -15,7 +15,6 @@ modulePDF:<br>
 
 Установка:<br>
 pip install pdfkit<br>
-pip install platform<br>
 pip install requests<br>
 sudo apt-get install wkhtmltopdf #for linux<br>
 https://wkhtmltopdf.org/downloads.html #for Windows<br>
