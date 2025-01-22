@@ -1,2 +1,8 @@
 /.venv
 /templates
+/build
+/dist
+modulPDF.spec
+/docsheet
+docsheet.zip
+.gitignore
