@@ -7,10 +7,10 @@ app.secret_key = 'key'
 
 # Подключение к базе данных
 DB_CONFIG = {
-    'dbname': 'croposdb',
-    'user': 'cropos',
-    'password': 'N@fta1450Crps',
-    'host': '10.155.23.71',
+    'dbname': 'dbname',
+    'user': 'user',
+    'password': 'password',
+    'host': '0.0.0.0',
     'port': 5432
 }
 
@@ -25,28 +25,47 @@ def get_data_from_db(query, params=None):
         cursor.close()
         connection.close()
         ok_message = "Подключен к базе данных"
-        print(ok_message) # для дебагинка базы данных
+        print(ok_message) # Для дебагинка базы данных
         return rows
 
     except Exception as e:
         error_message = f"Ошибка подключения к базе данных: {e}"
-        print(error_message) # для дебагинка базы данных
+        print(error_message) # Для дебагинка базы данных
         return None, error_message
 
 @app.route('/', methods=['GET', 'POST'])
 def main_menu():
 
-    # Основное меню с фильтрацией
     filters = {
         "start_date": request.form.get('start_date'),
         "end_date": request.form.get('end_date'),
+        "type": request.form.get('type'),
         "id": request.form.get('id'),
-        "report_id": request.form.get('report_id'),
     }
 
     # Загрузка истории отчетов
-    query = """ SELECT id, type, date FROM report ORDER BY date DESC """
-    history = get_data_from_db(query)
+    query = """ SELECT r.id, rd.id, r.type, r.date FROM report r JOIN report_data rd ON r.id = rd.report_id"""
+
+    conditions = []
+    params = {}
+
+    # Добавление фильтров
+    if filters["start_date"]:
+        conditions.append("date >= %(start_date)s")
+        params["start_date"] = filters["start_date"]
+    if filters["end_date"]:
+        conditions.append("date <= %(end_date)s")
+        params["end_date"] = filters["end_date"]
+    if filters["type"]:
+        conditions.append("type = %(type)s")
+        params["type"] = filters["type"]
+
+
+    # Добавление условий в запрос
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    query += " ORDER BY date DESC"
+    history = get_data_from_db(query, params)
 
     return render_template('main_menu.html', filters=filters, history=history)
 
@@ -63,8 +82,8 @@ def report(report_name):
 
     # Страница отчёта
     filters = {
-        "start_date": request.form.get('start_date'),
-        "end_date": request.form.get('end_date'),
+        "start_date_report": request.form.get('start_date_report'),
+        "end_date_report": request.form.get('end_date_report'),
         "id": request.form.get('id'),
         "report_id": request.form.get('report_id'),
     }
@@ -78,12 +97,12 @@ def report(report_name):
 
     # Добавление фильтров
     conditions = []
-    if filters["start_date"]:
-        conditions.append("date >= %(start_date)s")
-        params["start_date"] = filters["start_date"]
-    if filters["end_date"]:
-         conditions.append("date <= %(end_date)s")
-         params["end_date"] = filters["end_date"]
+    if filters["start_date_report"]:
+        conditions.append("date >= %(start_date_report)s")
+        params["start_date_report"] = filters["start_date_report"]
+    if filters["end_date_report"]:
+         conditions.append("date <= %(end_date_report)s")
+         params["end_date_report"] = filters["end_date_report"]
     if filters["id"]:
         conditions.append("id = %(id)s")
         params["id"] = filters["id"]
@@ -100,6 +119,30 @@ def report(report_name):
     else:
         query = base_query
 
+    @app.route('/report/shift_report<int:report_id>.html', methods=['GET'])
+    def shift_report(report_id):
+        # SQL-запрос для получения данных отчёта
+        query = """SELECT r.id, r.type, r.date
+        FROM report r
+        JOIN report_data rd
+        ON r.id=rd.report_id"""
+        print(f"Executing query: {query} with report_id={report_id}")  # Отладка
+
+        report_data, error = get_data_from_db(query, (report_id,))
+        if error:
+            print(f"Error while fetching data: {error}")  # Логирование ошибки
+            flash(f"Ошибка загрузки сменного отчёта с ID {report_id}: {error}", 'error')
+            return redirect(url_for('main_menu'))
+
+        if not report_data:
+            print(f"No data found for report_id={report_id}")  # Логирование пустых данных
+            flash(f"Данные для отчёта с ID {report_id} отсутствуют.", 'error')
+            return redirect(url_for('main_menu'))
+
+        # Передача данных в шаблон
+        print(f"Data fetched successfully: {report_data}")  # Отладка данных
+        return render_template('shift_report.html', report=report_data[0], report_id=report_id)
+
     # Получение данных
     data, error = get_data_from_db(query, params)
     if error: # (можно убрать после выпуска)
@@ -108,4 +151,4 @@ def report(report_name):
     return render_template(f'report_{report_name}.html', data=data, filters=filters)
 
 if __name__ == '__main__':
-    app.run(host='10.155.23.169', debug=True, port=5000)
+    app.run(host='0.0.0.0', debug=True, port=5000)
