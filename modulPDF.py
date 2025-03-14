@@ -18,7 +18,11 @@ def download_html(url, temp_html_file):
 def convert_html_to_pdf(html_file, output_pdf):
     try:
         config = pdfkit.configuration(wkhtmltopdf=r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe")
-        pdfkit.from_file(html_file, output_pdf, configuration=config)
+        options = {
+            'orientation': 'Landscape',  # Альбомная ориентация
+            'page-size': 'A4'
+        }
+        pdfkit.from_file(html_file, output_pdf, configuration=config, options=options)
         print(f"PDF создан: {output_pdf}")
     except OSError as e:
         print(f"Ошибка при создании PDF: {e}")
