@@ -5,20 +5,58 @@ from datetime import datetime, timedelta
 import modulPDF
 import os
 import json
+import hashlib, itertools, string
 
 app = Flask(__name__)
 app.secret_key = 'key'
+CONFIG_FILE = "config.json"
 
-# Загружаем настройка из JSON файла
-with open("config.json", "r") as file:
-    config = json.load(file)
+# Функция возвращает MD5-хеш пароля
+def hash_password(md5pu):
+    return "md5" + hashlib.md5(md5pu.encode()).hexdigest()
+
+# Загружаем настройки из JSON файла
+def load_config():
+    with open(CONFIG_FILE, "r") as file:
+        config = json.load(file)
+
+    # Проверяем, зашифрован ли пароль
+    password = config["DB_CONFIG"]["password"]
+
+    if not password.startswith("md5"):  # Если пароль не хеширован
+        print("Пароль в config.json не хеширован. Хешируем...")  # Отладка
+        config["DB_CONFIG"]["password"] = hash_password(password)  # Передаём password
+
+        # Сохраняем обновлённый конфиг
+        with open(CONFIG_FILE, "w") as file:
+            json.dump(config, file, indent=4)
+        print("Пароль зашифрован и сохранён!")
+
+    return config
+
+# Функция дешифрует MD5-хеш
+def md5_hash(word):
+    return hashlib.md5(word.encode()).hexdigest()
+
+def brute_force_md5(md5_hash_value):
+    # Проверка на префикс md5
+    if md5_hash_value.startswith("md5"):
+        md5_hash_value = md5_hash_value[3:]  # Убираем префикс md5
+
+    alphabet = string.ascii_lowercase  # Латинские буквы
+    for combo in itertools.product(alphabet, repeat=3):
+        word = ''.join(combo)
+        if md5_hash(word) == md5_hash_value:  # Сверяем хеш
+            return word
+    return "Не удалось расшифровать хеш!"
 
 # Подключение к базе данных и серверу
+config = load_config()
 DB_CONFIG = config["DB_CONFIG"]
 SERVER_CONFIG = config["SERVER_CONFIG"]
+DB_CONFIG["password"] = brute_force_md5(config["DB_CONFIG"]["password"])
 
 def get_data_from_db(query, params=None):
-
     # Выполняет запрос к базе данных и возвращает результат
     try:
         connection = psycopg2.connect(**DB_CONFIG)
@@ -39,109 +77,120 @@ def get_data_from_db(query, params=None):
 @app.route('/', methods=['GET', 'POST'])
 def main_menu():
     filters = {
-        "start_date": request.form.get('start_date'),
-        "end_date": request.form.get('end_date'),
-        "post": request.form.get('post'),
-        "numReport": request.form.get('numReport'),
+        "start_date": request.form.get('start_date') or request.args.get('start_date'),
+        "end_date": request.form.get('end_date') or request.args.get('end_date'),
+        "numSm": request.form.get('numSm') or request.args.get('numSm'),
+        "post": request.form.get('post') or request.args.get('post'),
+        "product": request.form.get('product') or request.args.get('product'),
     }
 
-    # Преобразование дат
+    print(f"Фильтры: {filters}")
+
+    # Проверяем, был ли POST-запрос
+    if request.method == 'POST':
+        conditions = []
+        params = {}
+
+        try:
+            if filters["start_date"]:
+                filters["start_date"] = datetime.strptime(filters["start_date"], "%Y-%m-%d").timestamp()
+            if filters["end_date"]:
+                filters["end_date"] = datetime.strptime(filters["end_date"], "%Y-%m-%d").timestamp()
+        except ValueError:
+            flash("Некорректный формат даты.", 'error')
+            filters["start_date"] = None
+            filters["end_date"] = None
+
+        if filters["start_date"]:
+            conditions.append('"dDate" >= %(start_date)s')
+            params["start_date"] = filters["start_date"]
+        if filters["end_date"]:
+            conditions.append('"dDate" <= %(end_date)s')
+            params["end_date"] = filters["end_date"]
+        if filters["post"]:
+            conditions.append('sh.post = %(post)s')
+            params["post"] = filters["post"]
+        if filters["product"]:
+            conditions.append('sh.product = %(product)s')
+            params["product"] = filters["product"]
+
+        query = """ SELECT sh."numReport", (TO_TIMESTAMP(sh."dDate") AT TIME ZONE 'UTC'), sh.operator, sh."numSm", 
+                           dir.txt AS direction, sh.post, sh.product, sh.dose, sh.dens, sh.temp, sh.mass, sh.volume, 
+                           sh."massAccum", sh."volumeAccum"
+                    FROM shipments sh
+                    JOIN direction dir ON sh.directing = dir.id
+                """
+
+        # Добавление условий в запрос
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY sh.\"dDate\" DESC"
+
+        # Выполнение запроса
+        history, error = get_data_from_db(query, params)
+        if error:
+            flash(f"Ошибка загрузки истории отчётов: {error}", 'error')
+            history = None
+    else:
+        history = None  # При запросе данные не загружаем
+
+    return render_template('main_menu.html', filters=filters, history=history, now=datetime.now, timedelta=timedelta)
+
+@app.route('/report/<report_name>', methods=['GET', 'POST'])
+def report(report_name):
+    filters = {
+        "start_date": request.form.get('start_date') or request.args.get('start_date'),
+        "end_date": request.form.get('end_date') or request.args.get('end_date'),
+        "numReport": request.form.get('numReport') or request.args.get('numReport'),
+        "post": request.form.get('post') or request.args.get('post'),
+    }
+
+    print(f"Фильтры: {filters}")
+    # SQL-запросы для отчётов
+    queries = {
+        "all_data": """SELECT sh."numReport", sh."dDate", sh.operator, sh."numSm", dir.txt AS direction, 
+                              sh.post, sh.product, sh.dose, sh.dens, sh.temp, sh.mass, sh.volume, 
+                              sh."massAccum", sh."volumeAccum"
+                       FROM shipments sh
+                       JOIN direction dir ON sh.directing = dir.id"""
+    }
+
+    base_query = queries.get(report_name, queries["all_data"])
+
+    # Фильтрация
+    params = {}
+    conditions = []
+
     try:
         if filters["start_date"]:
-            filters["start_date"] = datetime.strptime(filters["start_date"], "%Y-%m-%d").date()
+            filters["start_date"] = datetime.strptime(filters["start_date"], "%Y-%m-%d").timestamp()
         if filters["end_date"]:
-            filters["end_date"] = datetime.strptime(filters["end_date"], "%Y-%m-%d").date()
+            filters["end_date"] = datetime.strptime(filters["end_date"], "%Y-%m-%d").timestamp()
     except ValueError:
-        flash("Некорректный формат даты. Используйте формат YYYY-MM-DD.", 'error')
+        flash("Некорректный формат даты.", 'error')
         filters["start_date"] = None
         filters["end_date"] = None
 
-    # Загрузка истории отчетов
-    query = """ SELECT sh."numReport", (TO_TIMESTAMP(sh."dDate") AT TIME ZONE 'UTC'), sh.operator, sh."numSm", dir.txt AS direction, 
-                       sh.post, sh.product, sh.dens, sh.temp, sh.mass, sh.volume, 
-                       sh."massAccum", sh."volumeAccum"
-                FROM shipments sh
-                JOIN direction dir ON sh.directing = dir.id
-            """
-
-    conditions = []
-    params = {}
-
-    # Добавление фильтров
     if filters["start_date"]:
         conditions.append('"dDate" >= %(start_date)s')
         params["start_date"] = filters["start_date"]
     if filters["end_date"]:
         conditions.append('"dDate" <= %(end_date)s')
         params["end_date"] = filters["end_date"]
-    if filters["post"]:
-        conditions.append('sh.post = %(post)s')
-        params["post"] = filters["post"]
     if filters["numReport"]:
         conditions.append('sh."numReport" = %(numReport)s')
         params["numReport"] = filters["numReport"]
-
-    # Добавление условий в запрос
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
-    query += " ORDER BY sh.\"dDate\" DESC"
-
-    # Выполнение запроса
-    history, error = get_data_from_db(query, params)
-    if error:
-        flash(f"Ошибка загрузки истории отчётов: {error}", 'error')
-        history = None
-
-    return render_template('main_menu.html', filters=filters, history=history, now=datetime.now, timedelta=timedelta)
-
-
-@app.route('/report/<report_name>', methods=['GET', 'POST'])
-def report(report_name):
-
-    # Страница отчёта
-    filters = {
-        "start_date": request.form.get('start_date'),
-        "end_date": request.form.get('end_date'),
-        "numReport": request.form.get('numReport'),
-        "post": request.form.get('post'),
-    }
-
-    # SQL-запросы для отчётов
-    queries = {
-        "all_data": """SELECT sh."numReport", (TO_TIMESTAMP(sh."dDate") AT TIME ZONE 'UTC'), sh.operator, sh."numSm", dir.txt AS direction, 
-                       sh.post, sh.product, sh.dens, sh.temp, sh.mass, sh.volume, 
-                       sh."massAccum", sh."volumeAccum"
-                FROM shipments sh
-                JOIN direction dir ON sh.directing = dir.id
-        """
-    }
-
-    # Получение базового SQL-запроса
-    base_query = queries.get(report_name, queries["all_data"])
-
-    # Добавление фильтров
-    params = {}
-    conditions = []
-
-    if filters["start_date"]:
-        conditions.append("date >= %(start_date)s")
-        params["start_date"] = filters["start_date"]
-    if filters["end_date"]:
-        conditions.append("date <= %(end_date)s")
-        params["end_date"] = filters["end_date"]
     if filters["post"]:
-        conditions.append("post = %(post)s")
+        conditions.append('sh.post = %(post)s')
         params["post"] = filters["post"]
 
     # Соединение базового запроса и условий
     if conditions:
-        if "WHERE" in base_query.upper():
-            query = f"{base_query} AND {' AND '.join(conditions)}"
-        else:
-            query = f"{base_query} WHERE {' AND '.join(conditions)}"
+        query = f"{base_query} WHERE {' AND '.join(conditions)} ORDER BY sh.\"dDate\" DESC, sh.\"numReport\" DESC"
     else:
-        query = base_query
+        query = f"{base_query} ORDER BY sh.\"dDate\" DESC"
 
+    # Выполнение запроса
     data, error = get_data_from_db(query, params)
     if error:
         flash(f"Ошибка выполнения запроса: {error}", 'error')
@@ -152,69 +201,46 @@ def report(report_name):
     output_pdf = os.path.join(r"C:\dll" if os.name == "nt" else "/opt/Doc",
                               f"{report_name}_{datetime.now().strftime('%Y-%m-%d')}.pdf")
 
-    # Генерируем временный HTML-файл
-    report_html = render_template(f'report_{report_name}.html', data=data, filters=filters, now=datetime.now(), timedelta=timedelta)
-    with open(temp_html_file, 'w', encoding='utf-8') as f:
-        f.write(report_html)
+    try:
+        report_html = render_template(f'report_{report_name}.html', data=data, filters=filters, now=datetime.now(), timedelta=timedelta)
+        with open(temp_html_file, 'w', encoding='utf-8') as f:
+            f.write(report_html)
 
-    # Генерация PDF
-    modulPDF.convert_html_to_pdf(temp_html_file, output_pdf)
+        modulPDF.convert_html_to_pdf(temp_html_file, output_pdf)
+        modulPDF.open_pdf(output_pdf)
 
-    # Открытие PDF
-    modulPDF.open_pdf(output_pdf)
+    finally:
+        if os.path.exists(temp_html_file):
+            os.remove(temp_html_file)
 
-    # Удаляем временный HTML-файл
-    modulPDF.delete_temp_html(temp_html_file)
-
-    # Возвращаем страницу с отчетом
     return render_template(f'report_{report_name}.html', data=data, filters=filters, now=datetime.now(), timedelta=timedelta)
 
-@app.route('/report/shift_report<int:numReport>', methods=['GET'])
-def shift_report(numReport):
+@app.route('/report/ttn<int:numReport>', methods=['GET'])
+def ttn(numReport):
         # SQL-запрос для получения данных отчёта
         query = """SELECT sh."numReport", (TO_TIMESTAMP(sh."dDate") AT TIME ZONE 'UTC'), sh.operator, sh."numSm", dir.txt AS direction, 
-                       sh.post, sh.product, sh.dens, sh.temp, sh.mass, sh.volume, 
-                       sh."massAccum", sh."volumeAccum"
+                sh.post, sh.product, sh.dens, sh.temp, sh.mass, sh.volume, 
+                sh."massAccum", sh."volumeAccum"
                 FROM shipments sh
                 JOIN direction dir ON sh.directing = dir.id
         WHERE sh."numReport" = %s"""
-        print(f"Запрос выполняется: {query} с помощью numReport={numReport}")  # Отладка
 
         report_data, error = get_data_from_db(query, (numReport,))
         if error or not report_data:
             flash(f"Ошибка загрузки сменного отчёта с ID {numReport}: {error}", 'error')
             return redirect(url_for('main_menu'))
 
-        return render_template('shift_report.html', report=report_data[0], numReport=numReport)
+        return render_template('ttn.html', report=report_data[0], numReport=numReport)
 
-@app.route('/report/ttn<int:report_id>', methods=['GET'])
-def ttn(report_id):
-        # SQL-запрос для получения данных отчёта
-        query = """SELECT sh."numReport", (TO_TIMESTAMP(sh."dDate") AT TIME ZONE 'UTC'), sh.operator, sh."numSm", dir.txt AS direction, 
-                sh.post, sh.product, sh.dens, sh.temp, sh.mass, sh.volume, 
-                sh."massAccum", sh."volumeAccum"
-                FROM shipments sh
-                JOIN direction dir ON sh.directing = dir.id
-        WHERE sh."numReport" = %s"""
-        print(f"Запрос выполняется: {query} с помощью report_id={report_id}")  # Отладка
-
-        report_data, error = get_data_from_db(query, (report_id,))
-        if error or not report_data:
-            flash(f"Ошибка загрузки сменного отчёта с ID {report_id}: {error}", 'error')
-            return redirect(url_for('main_menu'))
-
-        return render_template('ttn.html', report=report_data[0], report_id=report_id)
-
-
-@app.route('/save_pdf/<int:report_id>', methods=['POST'])
-def save_pdf(report_id):
+@app.route('/save_pdf/<int:numReport>', methods=['POST'])
+def save_pdf(numReport):
     query = """SELECT sh."numReport", (TO_TIMESTAMP(sh."dDate") AT TIME ZONE 'UTC'), sh.operator, sh."numSm", dir.txt AS direction, 
                 sh.post, sh.product, sh.dens, sh.temp, sh.mass, sh.volume, 
                 sh."massAccum", sh."volumeAccum"
                 FROM shipments sh
                 JOIN direction dir ON sh.directing = dir.id
         WHERE sh."numReport" = %s"""
-    report_data, error = get_data_from_db(query, (report_id,))
+    report_data, error = get_data_from_db(query, (numReport,))
     if error or not report_data:
         flash(f"Ошибка загрузки отчета для PDF: {error}", 'error')
         return redirect(url_for('main_menu'))
@@ -223,7 +249,7 @@ def save_pdf(report_id):
     output_pdf = os.path.join(r"C:\dll" if os.name == "nt" else "/opt/Doc",
                               f"ttn_{datetime.now().strftime('%Y-%m-%d')}.pdf")
 
-    report_html = render_template('ttn.html', report=report_data[0], report_id=report_id, now=datetime.now())
+    report_html = render_template('ttn1.html', report=report_data[0], numReport=numReport, now=datetime.now())
     with open(temp_html_file, 'w', encoding='utf-8') as f:
         f.write(report_html)
 
@@ -232,7 +258,11 @@ def save_pdf(report_id):
     modulPDF.delete_temp_html(temp_html_file)
 
     flash(f"PDF-файл сохранен: {output_pdf}", 'success')
-    return redirect(url_for('ttn', report_id=report_id))
+    return redirect(url_for('ttn', numReport=numReport))
+
+@app.template_filter('timestamp_to_date')
+def timestamp_to_date(value):
+        return datetime.utcfromtimestamp(value).strftime('%Y-%m-%d %H:%M:%S')
 
 @app.errorhandler(Exception)
 def handle_exception(e):

@@ -15,9 +15,19 @@ def download_html(url, temp_html_file):
         f.write(response.text)
     print(f"HTML файл загружен: {temp_html_file}")
 
+def get_wkhtmltopdf_path():
+    system = platform.system()
+    if system == "Windows":
+        return r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe"
+    elif system == "Linux":
+        return "/usr/bin/wkhtmltopdf"  # Обычный путь в Linux
+    else:
+        raise Exception("Операционная система не поддерживается!")
+
 def convert_html_to_pdf(html_file, output_pdf):
     try:
-        config = pdfkit.configuration(wkhtmltopdf=r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe")
+        wkhtmltopdf_path = get_wkhtmltopdf_path()
+        config = pdfkit.configuration(wkhtmltopdf=wkhtmltopdf_path)
         options = {
             'orientation': 'Landscape',  # Альбомная ориентация
             'page-size': 'A4'
@@ -33,12 +43,14 @@ def delete_temp_html(temp_html_file):
     print(f"Временный HTML файл удален: {temp_html_file}")
 
 def open_pdf(output_pdf):
-    # Открытие PDF в стандартной программе
     system = platform.system()
     if system == "Windows":
         os.startfile(output_pdf)
     elif system == "Linux":
-        os.system(f"xdg-open {output_pdf}")
+        if os.path.exists(output_pdf):
+            os.system(f"DISPLAY=:0 xdg-open {output_pdf}")
+        else:
+            print(f"Файл {output_pdf} не найден!")
     else:
         print("Не поддерживаемая операционная система")
 
@@ -53,7 +65,7 @@ if __name__ == "__main__":
     if system == "Windows":
         save_path = r"C:\dll"
     elif system == "Linux":
-        save_path = r"/opt/Docsheet"
+        save_path = r"/opt/Doc"
     os.makedirs(save_path, exist_ok=True)
     output_pdf = os.path.join(save_path, f"{name}_{current_date}.pdf")
 
