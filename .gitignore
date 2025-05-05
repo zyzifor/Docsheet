@@ -2,7 +2,14 @@
 /templates
 /build
 /dist
-modulPDF.spec
+/__pycache__
 /docsheet
+/main
+modulPDF.spec
 docsheet.zip
 .gitignore
+Новый текстовый документ.txt
+test.py
+test.pdf
+pdfreader.py
+docsheet.zip

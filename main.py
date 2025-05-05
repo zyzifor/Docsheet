@@ -9,7 +9,6 @@ import getpass
 import json
 import hashlib, itertools, string, functools
 
-
 app = Flask(__name__)
 app.secret_key = 'key'
 CONFIG_FILE = "config.json"
@@ -121,7 +120,6 @@ def main_menu():
         }
 
     print(f"Фильтры: {filters}")
-
     # Проверяем, был ли POST-запрос
     if request.method == 'POST':
         conditions = []
@@ -150,13 +148,11 @@ def main_menu():
             conditions.append('sh.product = %(product)s')
             params["product"] = filters["product"]
 
-        query = """ 
-            SELECT sh."numReport", sh."dDate", sh.operator, sh."numSm", 
+        query = """SELECT sh."numReport", sh."dDate", sh.operator, sh."numSm", 
                    dir.txt AS direction, sh.post, sh.product, sh.dose, sh.dens, 
                    sh.temp, sh.mass, sh.volume, sh."massAccum", sh."volumeAccum"
             FROM shipments sh
-            JOIN direction dir ON sh.directing = dir.id
-        """
+            JOIN direction dir ON sh.directing = dir.id"""
 
         # Добавление условий в запрос
         if conditions:
@@ -220,13 +216,11 @@ def save_pdf_report(report_name):
         conditions.append('sh.product = %(product)s')
         params["product"] = filters["product"]
 
-    query = f"""
-        SELECT sh."numReport", sh."dDate", sh.operator, sh."numSm", dir.txt AS direction, 
+    query = f"""SELECT sh."numReport", sh."dDate", sh.operator, sh."numSm", dir.txt AS direction, 
                sh.post, sh.product, sh.dose, sh.dens, sh.temp, sh.mass, sh.volume, 
                sh."massAccum", sh."volumeAccum"
         FROM shipments sh
-        JOIN direction dir ON sh.directing = dir.id
-    """
+        JOIN direction dir ON sh.directing = dir.id"""
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
     query += ' ORDER BY sh."dDate" DESC'
@@ -461,7 +455,6 @@ def count_names(names):
     elif isinstance(names, str):
         return 1 if names.strip() else 0
     return 0
-
 
 @app.errorhandler(Exception)
 def handle_exception(e):
