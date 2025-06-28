@@ -262,10 +262,12 @@ def ttn(numReport):
         # SQL-запрос для получения данных отчёта
         query = """SELECT sh."numReport", sh."dDate", sh.operator, sh."numSm", dir.txt AS direction, sh.post, sh.product, sh.dens, sh.temp, sh.mass, sh.volume, sh."massAccum", sh."volumeAccum", sh.typeunit,
     CASE 
+        WHEN sh.car_number IS NOT NULL THEN sh.car_number
         WHEN sh.operation = 1 THEN cr."number"
-        ELSE NULL 
+        ELSE NULL
     END AS car_number,
     CASE 
+        WHEN sh.driver IS NOT NULL THEN sh.driver
         WHEN sh.operation = 1 THEN cr.driver
         ELSE NULL 
     END AS driver,
@@ -307,10 +309,12 @@ def save_pdf_ttn(numReport):
 
         query = """SELECT sh."numReport", sh."dDate", sh.operator, sh."numSm", dir.txt AS direction, sh.post, sh.product, sh.dens, sh.temp, sh.mass, sh.volume, sh."massAccum", sh."volumeAccum", sh.typeunit,
     CASE 
+        WHEN sh.car_number IS NOT NULL THEN sh.car_number
         WHEN sh.operation = 1 THEN cr."number"
-        ELSE NULL 
+        ELSE NULL
     END AS car_number,
     CASE 
+        WHEN sh.driver IS NOT NULL THEN sh.driver
         WHEN sh.operation = 1 THEN cr.driver
         ELSE NULL 
     END AS driver,
@@ -416,28 +420,33 @@ def number_to_words(value):
 
 @app.template_filter('number_to_words_unit')
 def number_to_words_unit(value, unit_code):
-
     if not isinstance(value, (int, float)) or unit_code not in [0, 1, 2]:
         return "Ошибка в данных"
 
-    value = round(value, 2)  # Округляем до 2 знаков
-    int_part = int(value)  # Целая часть
-    frac_part = round((value - int_part) * 100)  # Дробная часть (копейки, мл и т. д.)
+    value = round(value, 2)
+    int_part = int(value)
+    frac_part = int(round((value - int_part) * 100))  # Сотые доли
 
-    # Соответствие кода и единицы измерения (сокращенные формы)
-    units = {
-        0: "кг",  # 0 → кг
-        1: "л",   # 1 → литры
-        2: "т"    # 2 → тонны
+    # Названия единиц (целые и дробные)
+    unit_names = {
+        0: ("килограмм", "сотых килограмма"),
+        1: ("литр", "сотых литра"),
+        2: ("тонна", "сотых тонны")
     }
 
-    # Собираем строку
-    result = num2words(int_part, lang='ru') + " " + units[unit_code]
+    unit_main, unit_frac = unit_names[unit_code]
+
+    parts = []
+    if int_part > 0:
+        parts.append(f"{num2words(int_part, lang='ru')} {unit_main}")
 
     if frac_part > 0:
-        result += f" {num2words(frac_part, lang='ru')} сотых"
+        parts.append(f"{num2words(frac_part, lang='ru')} {unit_frac}")
 
-    return result
+    if not parts:
+        return f"ноль {unit_main}"
+
+    return ' '.join(parts)
 
 @app.template_filter('unit_name')
 def unit_name(unit_code):
@@ -455,6 +464,13 @@ def count_names(names):
     elif isinstance(names, str):
         return 1 if names.strip() else 0
     return 0
+
+@app.template_filter('round_2')
+def round_2(value):
+    try:
+        return round(float(value), 2)
+    except (TypeError, ValueError):
+        return ''
 
 @app.errorhandler(Exception)
 def handle_exception(e):

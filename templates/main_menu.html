@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Основное меню</title>
+    <style>
+        form {
+            text-align: center;
+            margin: 20px;
+        }
+        form div {
+            margin-bottom: 5px;
+        }
+        button {
+            padding: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        table.scrolldown tbody {
+            height: 800px;
+            width: 100%;
+            overflow-y: auto;
+            display: block;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #000000;
+        }
+        td:hover {
+            background-color: bisque;
+        }
+        .text-container {
+            flex-grow: 1;
+        }
+        .button-container {
+            text-align: right;
+        }
+        .btn {
+            padding: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        button.reset {
+            padding: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <form id="filter-form" method="POST" action="{{ url_for('main_menu') }}" style="text-align: left;">
+        <h2 class="text-container" style="text-align: left;">Журнал отгрузок</h2>
+        <div class="button-container">
+            <button id="savePdfBtn" onclick="savePDF(event)">Сохранить</button>
+            <button id="printPdfBtn" onclick="printPDF(event)">Печать</button>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 10px;">
+            <label for="printer" style="margin-right: 10px;">Принтер:</label>
+            <select name="printer" id="printer" style="min-width: 200px;"></select>
+        </div>
+
+        <div>
+            <label for="start_date">Начало периода:</label>
+            <input type="date" name="start_date" id="start_date" value="{{ filters.start_date or '' }}">
+
+            <label for="product">Продукт:</label>
+            <select id="product" name="product">
+                <option value="">Все</option>
+                {% for product in products %}
+                    <option value="{{ product[0] }}" {% if filters['product'] == product[0] %}selected{% endif %}>
+                        {{ product[0] }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label for="end_date">Конец периода:</label>
+            <input type="date" name="end_date" id="end_date" value="{{ filters.end_date or '' }}">
+
+            <label for="post">Островок:</label>
+            <input type="text" id="post" name="post" value="{{ filters.post if filters and 'post' in filters else '' }}">
+            <button type="submit">Применить фильтры</button>
+            <button type="button" class="reset" onclick="location.href='{{ url_for('main_menu') }}'">Сбросить фильтры</button>
+        </div>
+
+        <h3 style="text-align: left;">Журнал транзакций</h3>
+<div id="reportTableContainer">
+    {% include 'table.html' %}
+</div>
+    </form>
+
+    <div id="loading" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+        background-color:rgba(0,0,0,0.5); color:white; font-size:24px; text-align:center; padding-top:20%;">
+        ⏳ Подождите, идёт обработка PDF...
+    </div>
+
+    <script>
+    // Загружаем фильтры из localStorage
+    window.addEventListener('DOMContentLoaded', () => {
+        ['start_date', 'end_date', 'numSm', 'post', 'product'].forEach(id => {
+            const input = document.querySelector(`[name="${id}"]`);
+            if (input && localStorage.getItem(id)) {
+                input.value = localStorage.getItem(id);
+            }
+        });
+    });
+
+    document.getElementById('filter-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        document.getElementById('loading').style.display = 'block';
+
+        const form = e.target;
+        const formData = new FormData(form);
+
+        ['start_date', 'end_date', 'numSm', 'post', 'product'].forEach(id => {
+            const input = form.querySelector(`[name="${id}"]`);
+            if (input) {
+                localStorage.setItem(id, input.value);
+            }
+        });
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('reportTableContainer').innerHTML = html;
+            document.getElementById('loading').style.display = 'none';
+        })
+        .catch(error => {
+            document.getElementById('loading').style.display = 'none';
+            console.error('Ошибка обновления таблицы:', error);
+        });
+    });
+
+    fetch('/get_printers')
+        .then(response => response.json())
+        .then(data => {
+            const printerSelect = document.getElementById('printer');
+            data.printers.forEach(printer => {
+                const option = document.createElement('option');
+                option.value = printer;
+                option.textContent = printer;
+                printerSelect.appendChild(option);
+            });
+        });
+
+    function savePDF(event) {
+        event.preventDefault();
+        const form = document.querySelector('form');
+        const formData = new FormData(form);
+        document.getElementById('loading').style.display = 'block';
+
+        fetch("{{ url_for('save_pdf_report', report_name='all_data') }}", {
+            method: "POST",
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('loading').style.display = 'none';
+            alert(data.success ? data.message : "Не удалось создать PDF: " + data.message);
+        })
+        .catch(error => {
+            document.getElementById('loading').style.display = 'none';
+            console.error("Ошибка при выполнении запроса:", error);
+            alert("Произошла ошибка при сохранении PDF.");
+        });
+    }
+
+    function printPDF(event) {
+        event.preventDefault();
+        const form = document.querySelector('form');
+        const formData = new FormData(form);
+        formData.append('print', 'true');
+        document.getElementById('loading').style.display = 'block';
+
+        fetch("{{ url_for('save_pdf_report', report_name='all_data') }}", {
+            method: "POST",
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('loading').style.display = 'none';
+            alert(data.success ? "PDF сохранён и отправлен на печать!" : "Ошибка при печати: " + data.message);
+        })
+        .catch(error => {
+            document.getElementById('loading').style.display = 'none';
+            console.error("Ошибка при выполнении запроса:", error);
+            alert("Произошла ошибка при печати PDF.");
+        });
+    }
+    </script>
+</body>
+</html>
