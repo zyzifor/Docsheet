@@ -1,8 +1,19 @@
 /.venv
-/templates
+/templates/old
 /build
 /dist
-modulPDF.spec
+/__pycache__
 /docsheet
+/main
+modulPDF.spec
 docsheet.zip
 .gitignore
+Новый текстовый документ.txt
+test.py
+test.pdf
+pdfreader.py
+docsheet.zip
+/templates/ttn.html
+/templates/ttn1.html
+/templates/report_all_data.html
+/templates/shift_report.html

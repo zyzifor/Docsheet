@@ -1,0 +1,40 @@
+{% if history %}
+<table class="scrolldown" id="reportTable">
+    <tr>
+        <th>Операция</th>
+        <th>ДатаВремя</th>
+        <th>Оператор</th>
+        <th>Номер смены</th>
+        <th>Направление</th>
+        <th>Пост</th>
+        <th>Вид топлива</th>
+        <th>Доза</th>
+        <th>Плотность</th>
+        <th>Температура</th>
+        <th>Масса</th>
+        <th>Объем</th>
+        <th>Масса общ.</th>
+        <th>Объем общ.</th>
+    </tr>
+    {% for record in history %}
+    <tr>
+        <td>{{ record[0] }}</td>
+        <td>{{ record[1] | timestamp_to_date }}</td>
+        <td>{{ record[2] }}</td>
+        <td>{{ record[3] }}</td>
+        <td>{{ record[4] }}</td>
+        <td>{{ record[5] }}</td>
+        <td>{{ record[6] }}</td>
+        <td>{{ record[7] }}</td>
+        <td>{{ record[8] }}</td>
+        <td>{{ record[9] }}</td>
+        <td>{{ record[10] }}</td>
+        <td>{{ record[11] }}</td>
+        <td>{{ record[12] }}</td>
+        <td>{{ record[13] }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>Нет транзакций</p>
+{% endif %}
